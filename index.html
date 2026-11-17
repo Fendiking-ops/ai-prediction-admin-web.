@@ -1,3 +1,16 @@
+<script>
+    // Permanent Admin / Owner Bypass Check (Replace with your email or admin secret if needed)
+    const isAdmin = localStorage.getItem('valence_is_admin') === 'true' || prompt("Enter Admin Access Code (Leave blank if subscriber):") === "FENDI_ADMIN_2026";
+    if (isAdmin) {
+        localStorage.setItem('valence_is_admin', 'true');
+    } else {
+        const isSubscribed = localStorage.getItem('valence_subscription_active') === 'true';
+        if (!isSubscribed) {
+            alert('Access Restricted: Active subscription required. Redirecting to subscription gateway.');
+            window.location.href = 'https://fendiking-ops.github.io/ai-prediction-sorting-web/';
+        }
+    }
+</script>
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Valence Premium Admin</title>
     <style>
         body { background: #f4f6f9; color: #1e293b; font-family: -apple-system, sans-serif; margin: 0; padding: 10px; padding-bottom: 100px; } 
