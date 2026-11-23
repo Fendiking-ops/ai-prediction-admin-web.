@@ -17952,7 +17952,6 @@
       }
       const cs = window.getComputedStyle(el);
       const bg = cs.backgroundColor || "";
-      // Match blue / highlighted active pill backgrounds (e.g. #2563eb / #0284c7 / #38bdf8)
       const rgbMatch = bg.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
       if (rgbMatch) {
         const r = Number(rgbMatch[1]);
