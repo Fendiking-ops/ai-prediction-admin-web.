@@ -17934,4 +17934,139 @@
     });
   })();
 </script>
+
+<!-- Valence Force-Center Active/Selected Date on Premium Calendar -->
+<script id="valence-force-center-selected-date">
+  (function () {
+    const DATE_TAB_RE = /^(\d{4}-\d{2}-\d{2})(?:\s*\(Today\))?$/i;
+
+    function isSelectedOrHighlighted(el) {
+      if (!el) return false;
+      const cls = (el.className || "").toString().toLowerCase();
+      if (
+        el.getAttribute("aria-selected") === "true" ||
+        el.getAttribute("aria-current") === "date" ||
+        /\b(active|selected|current)\b/.test(cls)
+      ) {
+        return true;
+      }
+      const cs = window.getComputedStyle(el);
+      const bg = cs.backgroundColor || "";
+      // Match blue / highlighted active pill backgrounds (e.g. #2563eb / #0284c7 / #38bdf8)
+      const rgbMatch = bg.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+      if (rgbMatch) {
+        const r = Number(rgbMatch[1]);
+        const g = Number(rgbMatch[2]);
+        const b = Number(rgbMatch[3]);
+        if (b > 140 && b > r + 40 && !(r > 230 && g > 230 && b > 230)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function getDatePill(el) {
+      if (!el) return null;
+      const pill = el.closest("button, a, div, span, li") || el;
+      const txt = ((pill.innerText || pill.textContent) || "").trim();
+      return DATE_TAB_RE.test(txt) ? pill : null;
+    }
+
+    function findActiveDatePill() {
+      const all = Array.from(document.querySelectorAll("button, a, div, span, li"));
+      for (const el of all) {
+        const pill = getDatePill(el);
+        if (!pill) continue;
+        const rect = pill.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) continue;
+        if (isSelectedOrHighlighted(pill) || isSelectedOrHighlighted(el)) {
+          return pill;
+        }
+      }
+      return null;
+    }
+
+    function findHorizontalScroller(pill) {
+      let cur = pill ? pill.parentElement : null;
+      while (cur && cur !== document.body && cur !== document.documentElement) {
+        const cs = window.getComputedStyle(cur);
+        const overflowX = cs.overflowX || "";
+        if (cur.scrollWidth > cur.clientWidth + 2 || /auto|scroll/.test(overflowX)) {
+          return cur;
+        }
+        cur = cur.parentElement;
+      }
+      return null;
+    }
+
+    function centerPillInScroller(pill, scroller, behavior) {
+      if (!pill || !scroller) return false;
+      const scrollerRect = scroller.getBoundingClientRect();
+      const pillRect = pill.getBoundingClientRect();
+      const pillCenter = (pillRect.left - scrollerRect.left) + scroller.scrollLeft + (pillRect.width / 2);
+      const maxScroll = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+      const targetLeft = Math.min(maxScroll, Math.max(0, pillCenter - (scroller.clientWidth / 2)));
+
+      scroller.scrollLeft = targetLeft;
+      if (typeof scroller.scrollTo === "function") {
+        scroller.scrollTo({ left: targetLeft, behavior: behavior || "auto" });
+      }
+      return true;
+    }
+
+    function forceCenterActiveDate(behavior) {
+      const pill = findActiveDatePill();
+      if (!pill) return false;
+      const scroller = findHorizontalScroller(pill);
+      if (!scroller) return false;
+      return centerPillInScroller(pill, scroller, behavior || "auto");
+    }
+
+    function runCenterSequence(retries, behavior) {
+      const didCenter = forceCenterActiveDate(behavior);
+      if (retries > 0) {
+        setTimeout(() => runCenterSequence(retries - 1, behavior), didCenter ? 140 : 200);
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => runCenterSequence(12, "auto"));
+    window.addEventListener("load", () => {
+      runCenterSequence(10, "auto");
+      setTimeout(() => runCenterSequence(6, "smooth"), 250);
+    });
+    window.addEventListener("pageshow", () => {
+      runCenterSequence(10, "auto");
+      setTimeout(() => runCenterSequence(6, "smooth"), 250);
+    });
+
+    document.addEventListener("click", (ev) => {
+      const pill = getDatePill(ev.target);
+      if (!pill) return;
+      const scroller = findHorizontalScroller(pill);
+      setTimeout(() => {
+        if (scroller) centerPillInScroller(pill, scroller, "smooth");
+        forceCenterActiveDate("smooth");
+      }, 40);
+      setTimeout(() => {
+        if (scroller) centerPillInScroller(pill, scroller, "smooth");
+        forceCenterActiveDate("smooth");
+      }, 180);
+    }, true);
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (!document.body) return;
+      let timer = null;
+      const mo = new MutationObserver(() => {
+        clearTimeout(timer);
+        timer = setTimeout(() => forceCenterActiveDate("auto"), 90);
+      });
+      mo.observe(document.body, {
+        attributes: true,
+        attributeFilter: ["class", "style", "aria-selected", "aria-current"],
+        childList: true,
+        subtree: true
+      });
+    });
+  })();
+</script>
 </body></html>
