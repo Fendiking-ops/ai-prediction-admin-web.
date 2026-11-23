@@ -17877,4 +17877,61 @@
     });
   })();
 </script>
+
+<!-- Valence Dynamic (Today) Tag Sync (Premium) -->
+<script id="valence-today-tag-sync">
+  (function () {
+    function getTodayISO() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function syncTodayTag() {
+      const todayISO = getTodayISO();
+      const dateTabPattern = /^(\d{4}-\d{2}-\d{2})(?:\s*\(Today\))?$/i;
+      const candidates = Array.from(document.querySelectorAll("button, a, div, span, li"));
+
+      for (const el of candidates) {
+        if (el.children && el.children.length > 0) continue;
+        const raw = (el.textContent || "").trim();
+        const match = raw.match(dateTabPattern);
+        if (!match) continue;
+
+        const tabDate = match[1];
+        const desiredText = tabDate === todayISO ? `${tabDate} (Today)` : tabDate;
+        if (raw !== desiredText) {
+          el.textContent = desiredText;
+        }
+      }
+    }
+
+    function scheduleSync(retries) {
+      syncTodayTag();
+      if (retries > 0) {
+        setTimeout(() => scheduleSync(retries - 1), 200);
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => scheduleSync(10));
+    window.addEventListener("load", () => setTimeout(() => scheduleSync(6), 120));
+    window.addEventListener("pageshow", () => setTimeout(() => scheduleSync(6), 120));
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (!document.body) return;
+      let busy = false;
+      const mo = new MutationObserver(() => {
+        if (busy) return;
+        busy = true;
+        requestAnimationFrame(() => {
+          syncTodayTag();
+          busy = false;
+        });
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    });
+  })();
+</script>
 </body></html>
