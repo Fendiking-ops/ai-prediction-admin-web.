@@ -18155,4 +18155,70 @@
 })();
 </script>
 
+
+<script id="valence-match-dedup-s2-refine">
+(function() {
+  function normStr(s) {
+    return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+  function extractScope(card) {
+    var dateStr = "";
+    var cur = card.parentElement;
+    while (cur && cur !== document.body) {
+      if (cur.getAttribute && cur.getAttribute("data-date")) {
+        dateStr = cur.getAttribute("data-date");
+        break;
+      }
+      if (cur.id && /202\d-\d{2}-\d{2}/.test(cur.id)) {
+        dateStr = (cur.id.match(/202\d-\d{2}-\d{2}/) || [""])[0];
+        break;
+      }
+      cur = cur.parentElement;
+    }
+    var leagueEl = card.querySelector(".league, .competition, .tournament, [class*='league'], [class*='comp'], .kickoff, .time, [class*='time']");
+    var extraScope = normStr(leagueEl ? leagueEl.textContent : "");
+    var fullText = normStr(card.textContent || "");
+    var ageMatch = fullText.match(/\b(u15|u16|u17|u18|u19|u20|u21|u23|women|ladies|reserves|b team)\b/g);
+    var ageTag = ageMatch ? ageMatch.sort().join(",") : "";
+    return dateStr + "::" + extraScope + "::" + ageTag;
+  }
+  function refineDedup() {
+    var cards = document.querySelectorAll(".match-card, [class*='match-card']");
+    if (!cards || !cards.length) return;
+    var seen = new Set();
+    cards.forEach(function(card) {
+      var titleEl = card.querySelector(".teams, .match-teams, h3, h4, .team-names, [class*='team']");
+      var rawLine = (titleEl ? titleEl.textContent : (card.textContent || "")).split("\n")[0];
+      var parts = rawLine.split(/\s+(?:vs?\.?|[-–—xX@]|\u2013|\u2014)\s+/i);
+      if (parts.length >= 2) {
+        var a = normStr(parts[0]);
+        var b = normStr(parts[1]);
+        if (a && b) {
+          var key = extractScope(card) + "::" + [a, b].sort().join(" vs ");
+          if (seen.has(key)) {
+            card.style.display = "none";
+            card.setAttribute("data-valence-deduped", "exact");
+          } else {
+            seen.add(key);
+            if (card.getAttribute("data-valence-deduped") === "1") {
+              card.style.display = "";
+              card.removeAttribute("data-valence-deduped");
+            }
+          }
+        }
+      }
+    });
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function() {
+      refineDedup();
+      setTimeout(refineDedup, 700);
+    });
+  } else {
+    refineDedup();
+    setTimeout(refineDedup, 700);
+  }
+})();
+</script>
+
 </body></html>
