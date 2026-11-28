@@ -18221,4 +18221,102 @@
 })();
 </script>
 
+
+<!-- VALENCE_IDLE_45M_AND_BLUE_THEME_V1 -->
+<style id="valence-signin-blue-override">
+  #valence-auth-gate, .valence-auth-gate, [data-valence-auth-gate] {
+    background: linear-gradient(160deg, #07152e 0%, #0b224a 55%, #102f66 100%) !important;
+  }
+  #valence-auth-card, .valence-auth-card {
+    background: #0d254c !important;
+    border: 1px solid #2563eb !important;
+    box-shadow: 0 18px 42px rgba(3, 12, 30, 0.72) !important;
+  }
+  #valence-send-code-btn, .valence-send-code-btn {
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important;
+    border-color: #3b82f6 !important;
+    color: #ffffff !important;
+  }
+  #valence-confirm-code-btn, .valence-confirm-code-btn {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
+    border-color: #22c55e !important;
+    color: #ffffff !important;
+  }
+</style>
+<script>
+(function () {
+  var DEFAULT_IDLE_MS = 45 * 60 * 1000; // 45 minutes
+  var ACTIVITY_KEY = "valence_last_activity_ts";
+  var IDLE_LIMIT_KEY = "valence_idle_limit_ms";
+
+  function getIdleLimitMs() {
+    var saved = parseInt(localStorage.getItem(IDLE_LIMIT_KEY) || "", 10);
+    return (!isNaN(saved) && saved >= 60000) ? saved : DEFAULT_IDLE_MS;
+  }
+
+  function clearVerifiedSession() {
+    try {
+      localStorage.removeItem("valence_verified_email");
+      localStorage.removeItem("valence_verified_at");
+      localStorage.removeItem("valence_session_token");
+      sessionStorage.removeItem("valence_verified_email");
+      sessionStorage.removeItem("valence_verified_at");
+    } catch (e) {}
+  }
+
+  function isSessionIdleExpired() {
+    var last = parseInt(localStorage.getItem(ACTIVITY_KEY) || "0", 10);
+    if (!last) return false;
+    return (Date.now() - last) > getIdleLimitMs();
+  }
+
+  if (isSessionIdleExpired()) {
+    clearVerifiedSession();
+  }
+
+  function touchActivity() {
+    try {
+      localStorage.setItem(ACTIVITY_KEY, String(Date.now()));
+    } catch (e) {}
+  }
+
+  ["click", "keydown", "touchstart", "scroll", "mousemove"].forEach(function (evt) {
+    window.addEventListener(evt, touchActivity, { passive: true });
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") {
+      if (isSessionIdleExpired()) {
+        clearVerifiedSession();
+        window.location.reload();
+      } else {
+        touchActivity();
+      }
+    }
+  });
+
+  setInterval(function () {
+    if (isSessionIdleExpired()) {
+      clearVerifiedSession();
+      window.location.reload();
+    }
+  }, 30000);
+
+  window.addEventListener("DOMContentLoaded", function () {
+    touchActivity();
+    document.querySelectorAll("*").forEach(function (el) {
+      var st = el.getAttribute && el.getAttribute("style");
+      if (st && /#7c3aed|#6d28d9|#8b5cf6|#9333ea|#5b21b6|#4c1d95|124,\s*58,\s*237|109,\s*40,\s*217/i.test(st)) {
+        el.setAttribute(
+          "style",
+          st.replace(/#7c3aed|#6d28d9|#8b5cf6|#9333ea/gi, "#1d4ed8")
+            .replace(/#5b21b6|#4c1d95/gi, "#0b224a")
+            .replace(/124,\s*58,\s*237|109,\s*40,\s*217/g, "29, 78, 216")
+        );
+      }
+    });
+  });
+})();
+</script>
+
 </body></html>
