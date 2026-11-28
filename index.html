@@ -18039,18 +18039,9 @@
     writeSessionRecord(rec);
   }
 
-  function handlePageHide(ev) {
+  function handleBrowserExit(ev) {
     if (ev && ev.persisted) return;
     clearDeviceSession();
-  }
-
-  function handleVisibilityChange() {
-    if (document.hidden) {
-      // Do not wipe on brief tab/app switches within IDLE_MS; enforce expiry on return/check
-      readSessionRecord();
-    } else if (!hasVerifiedDeviceSession()) {
-      mountGate();
-    }
   }
 
   function mountGate() {
@@ -18063,20 +18054,20 @@
     overlay.id = "valence-code-gate-overlay";
     overlay.style.cssText = "position:fixed;inset:0;z-index:99999;background:#070b14;color:#f8fafc;display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,-apple-system,sans-serif;";
     overlay.innerHTML = [
-      '<div style="width:100%;max-width:420px;background:#0f172a;border:1px solid rgba(56,189,248,0.45);border-radius:16px;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,0.65);">',
+      '<div style="width:100%;max-width:420px;background:#0f172a;border:1px solid rgba(56, 189, 248, 0.45);border-radius:16px;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,0.65);">',
         '<div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#38bdf8;font-weight:700;margin-bottom:6px;">Valence AI Elite Access</div>',
         '<h2 style="margin:0 0 8px 0;font-size:20px;color:#ffffff;">Email &amp; Code Sign-In</h2>',
         '<p style="margin:0 0 16px 0;font-size:13px;line-height:1.5;color:#cbd5e1;">Enter your subscribed email to receive a confirmation code on this device before accessing Premium.</p>',
         '<label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;">Subscribed Email</label>',
         '<input id="vgate-email" type="email" placeholder="you@example.com" style="width:100%;box-sizing:border-box;padding:11px 12px;border-radius:10px;border:1px solid #334155;background:#070b14;color:#ffffff;font-size:14px;margin-bottom:12px;" />',
-        '<button id="vgate-send-btn" type="button" style="width:100%;padding:11px 14px;border-radius:10px;border:0;background:#2563eb;color:#ffffff;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:12px;">Send Confirmation Code</button>',
+        '<button id="vgate-send-btn" type="button" style="width:100%;padding:11px 14px;border-radius:10px;border:0;background:#1e40af;color:#ffffff;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:12px;">Send Confirmation Code</button>',
         '<div id="vgate-code-box" style="display:none;">',
           '<label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;">6-Digit Confirmation Code</label>',
-          '<input id="vgate-code" type="text" inputmode="numeric" maxlength="6" placeholder="123456" style="width:100%;box-sizing:border-box;padding:11px 12px;border-radius:10px;border:1px solid #334155;background:#070b14;color:#ffffff;font-size:16px;letter-spacing:0.2em;margin-bottom:12px;" />',
-          '<button id="vgate-verify-btn" type="button" style="width:100%;padding:11px 14px;border-radius:10px;border:0;background:#16a34a;color:#ffffff;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:10px;">Verify &amp; Unlock</button>',
+          '<input id="vgate-code" type="text" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit code" style="width:100%;box-sizing:border-box;padding:11px 12px;border-radius:10px;border:1px solid #334155;background:#070b14;color:#ffffff;font-size:15px;letter-spacing:0.18em;margin-bottom:10px;" />',
+          '<button id="vgate-verify-btn" type="button" style="width:100%;padding:11px 14px;border-radius:10px;border:0;background:#10b981;color:#06281e;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:10px;">Confirm Code &amp; Open Premium</button>',
         '</div>',
-        '<div id="vgate-status" style="min-height:20px;font-size:12.5px;line-height:1.45;color:#fbbf24;margin-bottom:12px;"></div>',
-        '<div style="text-align:center;font-size:12px;"><a href="' + SORTING_URL + '" style="color:#38bdf8;text-decoration:none;">Back to Free Slate</a></div>',
+        '<div id="vgate-status" style="min-height:18px;font-size:12px;color:#e2e8f0;line-height:1.45;"></div>',
+        '<div style="margin-top:14px;font-size:12px;color:#94a3b8;text-align:center;">Need a subscription? <a href="' + SORTING_URL + '" style="color:#38bdf8;text-decoration:none;">Go to Elite Access</a></div>',
       '</div>'
     ].join("");
     document.body.appendChild(overlay);
@@ -18164,8 +18155,9 @@
     } else {
       removeGateOverlay();
     }
-    window.addEventListener("pagehide", handlePageHide);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handleBrowserExit);
+    window.addEventListener("beforeunload", handleBrowserExit);
+    window.addEventListener("unload", handleBrowserExit);
     ["click", "keydown", "scroll", "touchstart"].forEach(function (ev) {
       window.addEventListener(ev, touchSessionActivity, { passive: true });
     });
