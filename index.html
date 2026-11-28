@@ -18022,6 +18022,13 @@
     });
   }
 
+  function removeGateOverlay() {
+    var existingOverlay = document.getElementById("valence-code-gate-overlay");
+    if (existingOverlay && existingOverlay.parentNode) {
+      existingOverlay.parentNode.removeChild(existingOverlay);
+    }
+  }
+
   function touchSessionActivity() {
     var rec = readSessionRecord();
     if (!rec) {
@@ -18032,11 +18039,16 @@
     writeSessionRecord(rec);
   }
 
-  function handleBrowserExitOrHide() {
+  function handleBrowserExit(ev) {
+    if (ev && ev.persisted) return;
     clearDeviceSession();
   }
 
   function mountGate() {
+    if (hasVerifiedDeviceSession()) {
+      removeGateOverlay();
+      return;
+    }
     if (document.getElementById("valence-code-gate-overlay")) return;
     var overlay = document.createElement("div");
     overlay.id = "valence-code-gate-overlay";
@@ -18128,7 +18140,7 @@
           }
           saveVerifiedDeviceSession(em, res.data.reference || "");
           statusEl.textContent = "Verified! Returning to Premium...";
-          window.location.reload();
+          removeGateOverlay();
         })
         .catch(function () {
           verifyBtn.disabled = false;
@@ -18138,16 +18150,14 @@
   }
 
   function startGateGuard() {
-    clearDeviceSession();
-    mountGate();
-    window.addEventListener("pagehide", handleBrowserExitOrHide);
-    window.addEventListener("beforeunload", handleBrowserExitOrHide);
-    window.addEventListener("unload", handleBrowserExitOrHide);
-    document.addEventListener("visibilitychange", function () {
-      if (document.hidden) {
-        handleBrowserExitOrHide();
-      }
-    });
+    if (!hasVerifiedDeviceSession()) {
+      mountGate();
+    } else {
+      removeGateOverlay();
+    }
+    window.addEventListener("pagehide", handleBrowserExit);
+    window.addEventListener("beforeunload", handleBrowserExit);
+    window.addEventListener("unload", handleBrowserExit);
     ["click", "keydown", "scroll", "touchstart"].forEach(function (ev) {
       window.addEventListener(ev, touchSessionActivity, { passive: true });
     });
