@@ -18100,4 +18100,59 @@
 })();
 </script>
 
+
+<script id="valence-match-dedup-s2">
+(function() {
+  function normT(s) {
+    return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+  function dedupMatchCards() {
+    var containers = document.querySelectorAll("[data-date], .matches-list, .match-list, #matches, #match-list, main, body");
+    var seenGlobal = new Set();
+    var cards = document.querySelectorAll(".match-card, [class*='match-card']");
+    if (!cards || !cards.length) return;
+    cards.forEach(function(card) {
+      var parentDate = "";
+      var cur = card.parentElement;
+      while (cur && cur !== document.body) {
+        if (cur.getAttribute && cur.getAttribute("data-date")) {
+          parentDate = cur.getAttribute("data-date");
+          break;
+        }
+        if (cur.id && /202\d-\d{2}-\d{2}/.test(cur.id)) {
+          parentDate = (cur.id.match(/202\d-\d{2}-\d{2}/) || [""])[0];
+          break;
+        }
+        cur = cur.parentElement;
+      }
+      var titleEl = card.querySelector(".teams, .match-teams, h3, h4, .team-names, [class*='team']");
+      var rawText = (titleEl ? titleEl.textContent : (card.textContent || "")).split("\n")[0];
+      var parts = rawText.split(/\s+(?:vs?\.?|[-–—xX@]|\u2013|\u2014)\s+/i);
+      if (parts.length >= 2) {
+        var a = normT(parts[0]);
+        var b = normT(parts[1]);
+        if (a && b) {
+          var key = parentDate + "::" + [a, b].sort().join(" vs ");
+          if (seenGlobal.has(key)) {
+            card.style.display = "none";
+            card.setAttribute("data-valence-deduped", "1");
+          } else {
+            seenGlobal.add(key);
+          }
+        }
+      }
+    });
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function() {
+      dedupMatchCards();
+      setTimeout(dedupMatchCards, 600);
+    });
+  } else {
+    dedupMatchCards();
+    setTimeout(dedupMatchCards, 600);
+  }
+})();
+</script>
+
 </body></html>
