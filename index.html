@@ -17950,67 +17950,112 @@
 <!-- manual-sync: 2026-11-26T22:45:21Z -->
 
 <script id="valence-premium-code-gate">
-(function() {
+(function () {
   var WEBHOOK_BASE = "https://valence-paystack-webhook.onrender.com";
   var SORTING_URL = "https://fendiking-ops.github.io/ai-prediction-sorting-web/";
   var SESSION_KEY = "valence_premium_code_verified";
+  var IDLE_MS = 2700 * 1000;
+  var SUB_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
   function normEmail(v) {
     return (v || "").trim().toLowerCase();
   }
 
-  function hasVerifiedDeviceSession() {
+  function clearDeviceSession() {
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+    try {
+      localStorage.removeItem("valence_subscription_active");
+    } catch (e) {}
+  }
+
+  function readSessionRecord() {
     try {
       var raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
       if (!raw) return null;
       var parsed = JSON.parse(raw);
-      if (parsed && parsed.verified === true && normEmail(parsed.email)) {
-        return normEmail(parsed.email);
+      if (!parsed || parsed.verified !== true || !normEmail(parsed.email)) {
+        return null;
       }
-    } catch (e) {}
-    return null;
+      var now = Date.now();
+      var lastTs = Number(parsed.ts || 0);
+      var issuedTs = Number(parsed.issued_ts || parsed.ts || 0);
+      if (!lastTs || (now - lastTs) > IDLE_MS || (issuedTs && (now - issuedTs) > SUB_MAX_AGE_MS)) {
+        clearDeviceSession();
+        return null;
+      }
+      return {
+        email: normEmail(parsed.email),
+        reference: parsed.reference || "",
+        ts: lastTs,
+        issued_ts: issuedTs || lastTs
+      };
+    } catch (e) {
+      return null;
+    }
   }
 
-  function saveVerifiedDeviceSession(email, ref) {
+  function hasVerifiedDeviceSession() {
+    var rec = readSessionRecord();
+    return rec ? rec.email : null;
+  }
+
+  function writeSessionRecord(rec) {
     var payload = JSON.stringify({
-      email: normEmail(email),
-      reference: ref || "",
+      email: normEmail(rec.email),
+      reference: rec.reference || "",
       verified: true,
-      ts: Date.now()
+      ts: rec.ts,
+      issued_ts: rec.issued_ts
     });
     try { localStorage.setItem(SESSION_KEY, payload); } catch (e) {}
     try { sessionStorage.setItem(SESSION_KEY, payload); } catch (e) {}
     try {
-      localStorage.setItem("valence_subscriber_email", normEmail(email));
+      localStorage.setItem("valence_subscriber_email", normEmail(rec.email));
       localStorage.setItem("valence_subscription_active", "true");
     } catch (e) {}
   }
 
-  var existing = hasVerifiedDeviceSession();
-  if (existing) {
-    return;
+  function saveVerifiedDeviceSession(email, ref) {
+    var now = Date.now();
+    writeSessionRecord({
+      email: email,
+      reference: ref || "",
+      ts: now,
+      issued_ts: now
+    });
+  }
+
+  function touchSessionActivity() {
+    var rec = readSessionRecord();
+    if (!rec) {
+      mountGate();
+      return;
+    }
+    rec.ts = Date.now();
+    writeSessionRecord(rec);
   }
 
   function mountGate() {
     if (document.getElementById("valence-code-gate-overlay")) return;
     var overlay = document.createElement("div");
     overlay.id = "valence-code-gate-overlay";
-    overlay.style.cssText = "position:fixed;inset:0;z-index:99999;background:#070b14;color:#f8fafc;display:flex;align-items:center;justify-content:center;padding:20px;font-family:system-ui,-apple-system,sans-serif;";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:99999;background:#070b14;color:#f8fafc;display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,-apple-system,sans-serif;";
     overlay.innerHTML = [
-      '<div style="width:100%;max-width:420px;background:#0f172a;border:1px solid rgba(120,87,255,0.45);border-radius:16px;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,0.65);">',
-      '  <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#a78bfa;font-weight:700;margin-bottom:6px;">Valence AI Elite Access</div>',
-      '  <h2 style="margin:0 0 8px 0;font-size:20px;color:#ffffff;">Email &amp; Code Sign-In</h2>',
-      '  <p style="margin:0 0 16px 0;font-size:13px;line-height:1.5;color:#cbd5e1;">Enter your subscribed email to receive a confirmation code on this device before accessing Premium.</p>',
-      '  <label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;">Subscribed Email</label>',
-      '  <input id="vgate-email" type="email" placeholder="you@example.com" style="width:100%;box-sizing:border-box;padding:11px 12px;border-radius:10px;border:1px solid #334155;background:#070b14;color:#ffffff;font-size:14px;margin-bottom:10px;" />',
-      '  <button id="vgate-send-btn" type="button" style="width:100%;padding:11px 14px;border-radius:10px;border:0;background:#7857ff;color:#ffffff;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:12px;">Send Confirmation Code</button>',
-      '  <div id="vgate-code-box" style="display:none;">',
-      '    <label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;">6-Digit Confirmation Code</label>',
-      '    <input id="vgate-code" type="text" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit code" style="width:100%;box-sizing:border-box;padding:11px 12px;border-radius:10px;border:1px solid #334155;background:#070b14;color:#ffffff;font-size:15px;letter-spacing:0.18em;margin-bottom:10px;" />',
-      '    <button id="vgate-verify-btn" type="button" style="width:100%;padding:11px 14px;border-radius:10px;border:0;background:#10b981;color:#06281e;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:10px;">Confirm Code &amp; Open Premium</button>',
-      '  </div>',
-      '  <div id="vgate-status" style="min-height:18px;font-size:12px;color:#e2e8f0;line-height:1.45;"></div>',
-      '  <div style="margin-top:14px;font-size:12px;color:#94a3b8;text-align:center;">Need a subscription? <a href="' + SORTING_URL + '" style="color:#a78bfa;text-decoration:none;">Go to Elite Access</a></div>',
+      '<div style="width:100%;max-width:420px;background:#0f172a;border:1px solid rgba(129,87,255,0.45);border-radius:16px;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,0.65);">',
+        '<div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#a78bfa;font-weight:700;margin-bottom:6px;">Valence AI Elite Access</div>',
+        '<h2 style="margin:0 0 8px 0;font-size:20px;color:#ffffff;">Email &amp; Code Sign-In</h2>',
+        '<p style="margin:0 0 16px 0;font-size:13px;line-height:1.5;color:#cbd5e1;">Enter your subscribed email to receive a confirmation code on this device before accessing Premium.</p>',
+        '<label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;">Subscribed Email</label>',
+        '<input id="vgate-email" type="email" placeholder="you@example.com" style="width:100%;box-sizing:border-box;padding:11px 12px;border-radius:10px;border:1px solid #334155;background:#070b14;color:#ffffff;font-size:14px;margin-bottom:12px;" />',
+        '<button id="vgate-send-btn" type="button" style="width:100%;padding:11px 14px;border-radius:10px;border:0;background:#7c57ff;color:#ffffff;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:12px;">Send Confirmation Code</button>',
+        '<div id="vgate-code-box" style="display:none;">',
+          '<label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;">6-Digit Confirmation Code</label>',
+          '<input id="vgate-code" type="text" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit code" style="width:100%;box-sizing:border-box;padding:11px 12px;border-radius:10px;border:1px solid #334155;background:#070b14;color:#ffffff;font-size:15px;letter-spacing:0.18em;margin-bottom:10px;" />',
+          '<button id="vgate-verify-btn" type="button" style="width:100%;padding:11px 14px;border-radius:10px;border:0;background:#10b981;color:#06281e;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:10px;">Confirm Code &amp; Open Premium</button>',
+        '</div>',
+        '<div id="vgate-status" style="min-height:18px;font-size:12px;color:#e2e8f0;line-height:1.45;"></div>',
+        '<div style="margin-top:14px;font-size:12px;color:#94a3b8;text-align:center;">Need a subscription? <a href="' + SORTING_URL + '" style="color:#a78bfa;text-decoration:none;">Go to Elite Access</a></div>',
       '</div>'
     ].join("");
     document.body.appendChild(overlay);
@@ -18023,11 +18068,11 @@
     var statusEl = document.getElementById("vgate-status");
 
     try {
-      var savedEm = normEmail(localStorage.getItem("valence_subscriber_email") || "");
+      var savedEm = normEmail(localStorage.getItem("valence_subscriber_email")) || "";
       if (savedEm) emailIn.value = savedEm;
     } catch (e) {}
 
-    sendBtn.addEventListener("click", function() {
+    sendBtn.addEventListener("click", function () {
       var em = normEmail(emailIn.value);
       if (!em || em.indexOf("@") === -1) {
         statusEl.textContent = "Please enter a valid email address.";
@@ -18040,27 +18085,27 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: em })
       })
-      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
-      .then(function(res) {
-        sendBtn.disabled = false;
-        if (!res.ok || !res.data || !res.data.ok) {
-          statusEl.textContent = (res.data && res.data.error) || "Could not send code for this email.";
-          return;
-        }
-        codeBox.style.display = "block";
-        if (res.data.verification_code) {
-          statusEl.textContent = "Confirmation code: " + res.data.verification_code + " (valid for 15 minutes). Enter it below to unlock on this device.";
-        } else {
-          statusEl.textContent = "Confirmation code sent to " + em + ". Enter it below to unlock on this device.";
-        }
-      })
-      .catch(function() {
-        sendBtn.disabled = false;
-        statusEl.textContent = "Network/server waking up. Tap Send Confirmation Code again.";
-      });
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+          sendBtn.disabled = false;
+          if (!res.ok || !res.data || !res.data.ok) {
+            statusEl.textContent = (res.data && res.data.error) || "Could not send code for this email.";
+            return;
+          }
+          codeBox.style.display = "block";
+          if (res.data.verification_code) {
+            statusEl.textContent = "Confirmation code: " + res.data.verification_code + " (valid for 15 minutes). Enter it below to unlock on this device.";
+          } else {
+            statusEl.textContent = "Confirmation code sent to " + em + ". Enter it below to unlock on this device.";
+          }
+        })
+        .catch(function () {
+          sendBtn.disabled = false;
+          statusEl.textContent = "Network/server waking up. Tap Send Confirmation Code again.";
+        });
     });
 
-    verifyBtn.addEventListener("click", function() {
+    verifyBtn.addEventListener("click", function () {
       var em = normEmail(emailIn.value);
       var cd = (codeIn.value || "").trim();
       if (!em || !cd) {
@@ -18074,28 +18119,44 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: em, code: cd })
       })
-      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
-      .then(function(res) {
-        verifyBtn.disabled = false;
-        if (!res.ok || !res.data || !res.data.verified) {
-          statusEl.textContent = (res.data && res.data.error) || "Code verification failed.";
-          return;
-        }
-        saveVerifiedDeviceSession(em, res.data.reference || "");
-        statusEl.textContent = "Verified! Returning to Premium...";
-        window.location.reload();
-      })
-      .catch(function() {
-        verifyBtn.disabled = false;
-        statusEl.textContent = "Verification request timed out. Please try again.";
-      });
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+          verifyBtn.disabled = false;
+          if (!res.ok || !res.data || !res.data.verified) {
+            statusEl.textContent = (res.data && res.data.error) || "Code verification failed.";
+            return;
+          }
+          saveVerifiedDeviceSession(em, res.data.reference || "");
+          statusEl.textContent = "Verified! Returning to Premium...";
+          window.location.reload();
+        })
+        .catch(function () {
+          verifyBtn.disabled = false;
+          statusEl.textContent = "Verification request timed out. Please try again.";
+        });
     });
   }
 
+  function startGateGuard() {
+    var existing = hasVerifiedDeviceSession();
+    if (!existing) {
+      mountGate();
+      return;
+    }
+    ["click", "keydown", "scroll", "touchstart"].forEach(function (ev) {
+      window.addEventListener(ev, touchSessionActivity, { passive: true });
+    });
+    setInterval(function () {
+      if (!hasVerifiedDeviceSession()) {
+        mountGate();
+      }
+    }, 30000);
+  }
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", mountGate);
+    document.addEventListener("DOMContentLoaded", startGateGuard);
   } else {
-    mountGate();
+    startGateGuard();
   }
 })();
 </script>
